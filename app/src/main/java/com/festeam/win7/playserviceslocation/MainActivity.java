@@ -14,10 +14,12 @@ import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -32,22 +34,31 @@ import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStates;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+
 public class MainActivity extends AppCompatActivity implements
         GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener {
 
-    Location mLocation;
+    String TAG = "Gooo";
+    Location mLastLocation;
     GoogleApiClient mGoogleApiClient;
     LocationRequest mLocationRequest;
 
-    String TAG = "XXX";
     final static int REQUEST_LOCATION = 199;
     final static int REQUEST_PERMISSIONS_REQUEST_CODE = 34;
-    final static int UPDATE_INTERVAL = 30 * 1000;
+    final static int UPDATE_INTERVAL = 10 * 1000;
     final static int FASTEST_UPDATE_INTERVAL = UPDATE_INTERVAL / 2;
     final static int SMALLEST_DISPLACEMENT = 5;
 
     public static boolean FLAG_PERMISSIONS_GPS = false;
     public static boolean FLAG_ENABLE_GPS = false;
+
+    TextView tw_location;
+
+    Calendar c = Calendar.getInstance();
+    SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,12 +67,34 @@ public class MainActivity extends AppCompatActivity implements
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+        tw_location = findViewById(R.id.textView_location);
+        tw_location.setMovementMethod(new ScrollingMovementMethod());
+
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
+                /* Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
+                        .setAction("Action", null).show(); */
+
+                if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                        ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    // TODO: Consider calling
+                    //    ActivityCompat#requestPermissions
+                    // here to request the missing permissions, and then overriding
+                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                    //                                          int[] grantResults)
+                    // to handle the case where the user grants the permission. See the documentation
+                    // for ActivityCompat#requestPermissions for more details.
+                    return;
+                }
+                mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+                if (mLastLocation != null) {
+                    Toast.makeText(getApplicationContext(), mLastLocation.getLatitude() + " " + mLastLocation.getLongitude() + " " +
+                            mLastLocation.getSpeed() + " " + mLastLocation.getBearing(), Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(getApplicationContext(), "null", Toast.LENGTH_SHORT).show();
+                }
             }
         });
         PermissionsGPS();
@@ -89,7 +122,9 @@ public class MainActivity extends AppCompatActivity implements
         return super.onOptionsItemSelected(item);
     }
 
-    /********************************************/
+    //-------------------------------------------------
+    //  Lifecycle
+    //-------------------------------------------------
     @Override
     protected void onStart() {
         Log.e(TAG, "OnStart");
@@ -137,7 +172,9 @@ public class MainActivity extends AppCompatActivity implements
         }
     }
 
-    /****************************************/
+    //-------------------------------------------------
+    //  GPS
+    //-------------------------------------------------
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         Log.e(TAG, "OnConnected");
@@ -146,10 +183,10 @@ public class MainActivity extends AppCompatActivity implements
         }
 
         mLocationRequest = LocationRequest.create();
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         mLocationRequest.setInterval(UPDATE_INTERVAL);
-        // mLocationRequest.setFastestInterval(FASTEST_UPDATE_INTERVAL);
-        // mLocationRequest.setSmallestDisplacement(1);
+        mLocationRequest.setFastestInterval(FASTEST_UPDATE_INTERVAL);
+        mLocationRequest.setSmallestDisplacement(SMALLEST_DISPLACEMENT);
 
         LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
 
@@ -191,20 +228,31 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onConnectionSuspended(int i) {
-
+        Log.e(TAG, "onConnectionSuspended");
     }
 
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-
+        Log.e(TAG, "onConnectionFailed");
     }
 
     @Override
     public void onLocationChanged(Location location) {
-        Log.e(TAG, "Location Change " + location.getLatitude());
+        c = Calendar.getInstance();
+        String strDate = sdf.format(c.getTime());
+
+        Log.e(TAG, "onLocationChanged " + strDate + " " + location.getLatitude() + " " + location.getLongitude() + " " +
+                location.getSpeed() + " " + location.hasSpeed() + " " +
+                location.getBearing() + " " + location.hasBearing());
+
+        tw_location.setText(strDate + " " + location.getLatitude() + " " + location.getLongitude() + " " +
+                location.getSpeed() + " " + location.hasSpeed() + " " +
+                location.getBearing() + " " + location.hasBearing() + "\n" + tw_location.getText());
     }
 
-    /********************************************/
+    //-------------------------------------------------
+    //  Permission
+    //-------------------------------------------------
     private void PermissionsGPS() {
         ActivityCompat.requestPermissions(MainActivity.this,
                 new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
@@ -290,7 +338,10 @@ public class MainActivity extends AppCompatActivity implements
                 Manifest.permission.ACCESS_FINE_LOCATION);
         return permissionState == PackageManager.PERMISSION_GRANTED;
     }
-    /********************************/
+
+    //-------------------------------------------------
+    //  Other
+    //-------------------------------------------------
     private void ShowSnackbar(final int mainTextStringId, final int actionStringId,
                               View.OnClickListener listener) {
         Snackbar.make(
